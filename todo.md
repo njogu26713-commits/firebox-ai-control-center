@@ -71,4 +71,7 @@
 - [x] Reviewed real Home component coverage; deferred it to keep the requested sign-in removal focused
 - [x] Reviewed Home preview-flow coverage; deferred it to keep the requested sign-in removal focused
 - [x] Re-ran checks after the focused sign-in removal change; no extra component-test dependency was retained
-- [ ] Fix `Please login (10001)` on the unauthenticated dashboard without unrelated feature changes
+- [x] Fix `Please login (10001)` on the unauthenticated dashboard without unrelated feature changes
+- [x] Guard protected persona, pairing, and preview actions in guest mode to prevent Please login errors
+- [x] Verify common unauthenticated dashboard interactions do not trigger login errors
+- [ ] Guard the secondary QR retry button so it cannot trigger Please login for guests
