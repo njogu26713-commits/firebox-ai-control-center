@@ -59,3 +59,15 @@
 - [x] Run and record a real production startup check for the WebCrypto compatibility fix
 - [x] Push the crash-fix files to GitHub and verify the remote branch contains them
 - [x] Re-run final validation after the production startup and remote checks
+- [x] Remove the dashboard sign-in gate and keep the existing control-center features unchanged
+- [x] Add a clear unauthenticated guest-mode fallback so protected workspace queries do not surface confusing errors
+- [x] Verify overview, pairing, persona, and preview sections remain usable or clearly gated without sign-in
+- [x] Add coverage for unauthenticated dashboard behavior without weakening owner-scoped server procedures
+- [x] Add automated guest-mode coverage for protected query disabling and safe preview fallback
+- [x] Re-run type checks and tests after the guest-mode coverage update
+- [x] Add direct Home UI behavior tests proving guest mode disables protected overview queries and owner actions
+- [x] Add direct coverage that Home preview renders the guest fallback message
+- [x] Re-run type checks and tests after adding direct Home behavior coverage
+- [ ] Add a real Home component test for guest-mode query disabling and protected control states
+- [ ] Add a real Home preview-flow test for the unauthenticated fallback message
+- [ ] Re-run checks after the real component tests are added
