@@ -33,6 +33,7 @@ export const whatsappSessions = mysqlTable("whatsappSessions", {
   phoneNumber: varchar("phoneNumber", { length: 32 }),
   pairingCode: varchar("pairingCode", { length: 32 }),
   qrPayload: text("qrPayload"),
+  qrSessionId: varchar("qrSessionId", { length: 64 }),
   expiresAt: timestamp("expiresAt"),
   lastConnectedAt: timestamp("lastConnectedAt"),
   lastError: text("lastError"),

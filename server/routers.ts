@@ -5,16 +5,16 @@ import { systemRouter } from "./_core/systemRouter";
 import { invokeLLM } from "./_core/llm";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { getPersona, getWhatsappSession, savePersona, saveWhatsappSession } from "./db";
-import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
+import { isCurrentQrSession, requestLivePairingCode, requestLiveQr } from "./whatsappService";
 
 const actionIds = ["whatsapp_bots", "automation", "deployment", "github", "contact", "developer", "firebox"] as const;
 export const phoneNumberInput = z.string().trim().regex(/^\+?[0-9]{8,15}$/);
-export function createPairingCode() { return randomBytes(4).toString("hex").toUpperCase().match(/.{1,4}/g)?.join("-") ?? "FIRE-BOX"; }
 
 export async function presentSession(session: Awaited<ReturnType<typeof getWhatsappSession>>) {
   const { qrPayload, pairingCode, ...safe } = session;
-  return { ...safe, qrImage: qrPayload ? await QRCode.toDataURL(qrPayload, { margin: 1, width: 420 }) : null };
+  const qrIsLive = Boolean(qrPayload && isCurrentQrSession(session.ownerId, session.qrSessionId));
+  return { ...safe, qrImage: qrIsLive ? await QRCode.toDataURL(qrPayload!, { margin: 1, width: 420 }) : null };
 }
 export const personaInput = z.object({
   assistantName: z.string().trim().min(2).max(80),
@@ -53,15 +53,23 @@ export const appRouter = router({
     })),
     session: protectedProcedure.query(({ ctx }) => getWhatsappSession(ctx.user.id).then(presentSession)),
     refreshQr: protectedProcedure.mutation(async ({ ctx }) => {
-      const expiresAt = new Date(Date.now() + 120000);
-      const qrPayload = `firebox:${randomBytes(18).toString("base64url")}`;
-      return presentSession(await saveWhatsappSession(ctx.user.id, { status: "waiting_qr", qrPayload, pairingCode: null, expiresAt, lastError: null }));
+      try {
+        const live = await requestLiveQr(ctx.user.id);
+        const safe = await presentSession(await getWhatsappSession(ctx.user.id));
+        return { ...safe, qrImage: live.qrImage, expiresAt: live.expiresAt };
+      } catch (error) {
+        await saveWhatsappSession(ctx.user.id, { status: "error", lastError: error instanceof Error ? error.message : "Live QR unavailable" });
+        throw error;
+      }
     }),
     requestPairingCode: protectedProcedure.input(z.object({ phoneNumber: phoneNumberInput })).mutation(async ({ ctx, input }) => {
-      const expiresAt = new Date(Date.now() + 120000);
-      const pairingCode = createPairingCode();
-      const saved = await saveWhatsappSession(ctx.user.id, { status: "waiting_pairing", phoneNumber: input.phoneNumber, pairingCode, qrPayload: null, expiresAt, lastError: null });
-      return { ...(await presentSession(saved)), pairingCode };
+      try {
+        const live = await requestLivePairingCode(ctx.user.id, input.phoneNumber);
+        return { ...(await presentSession(await getWhatsappSession(ctx.user.id))), pairingCode: live.pairingCode, expiresAt: live.expiresAt };
+      } catch (error) {
+        await saveWhatsappSession(ctx.user.id, { status: "error", lastError: error instanceof Error ? error.message : "Live pairing unavailable" });
+        throw error;
+      }
     }),
     preview: protectedProcedure.input(z.object({ message: z.string().trim().min(1).max(500) })).mutation(async ({ ctx, input }) => {
       const saved = await getPersona(ctx.user.id);

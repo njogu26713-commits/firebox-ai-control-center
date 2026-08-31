@@ -15,6 +15,13 @@
       "when": 1788177319683,
       "tag": "0001_old_blue_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1788178389488,
+      "tag": "0002_regular_korath",
+      "breakpoints": true
     }
   ]
 }

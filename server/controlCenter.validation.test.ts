@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createPairingCode, personaInput, phoneNumberInput, presentSession, appRouter } from "./routers";
+import { appRouter, personaInput, phoneNumberInput, presentSession } from "./routers";
 
 describe("control center validation", () => {
   it("accepts a complete persona with approved actions", () => {
@@ -19,14 +19,13 @@ describe("control center validation", () => {
   it("validates phone numbers and creates a short pairing code", () => {
     expect(phoneNumberInput.safeParse("+254769564723").success).toBe(true);
     expect(phoneNumberInput.safeParse("not-a-phone").success).toBe(false);
-    expect(createPairingCode()).toMatch(/^[A-F0-9]{4}-[A-F0-9]{4}$/);
   });
 
   it("does not expose raw session secrets in general responses", async () => {
-    const safe = await presentSession({ ownerId: 7, id: 1, status: "waiting_qr", phoneNumber: null, pairingCode: "ABCD-EFGH", qrPayload: "secret-payload", expiresAt: new Date(), lastConnectedAt: null, lastError: null, createdAt: new Date(), updatedAt: new Date() });
+    const safe = await presentSession({ ownerId: 7, id: 1, status: "waiting_qr", phoneNumber: null, pairingCode: "ABCD-EFGH", qrPayload: "secret-payload", qrSessionId: "stale-session", expiresAt: new Date(), lastConnectedAt: null, lastError: null, createdAt: new Date(), updatedAt: new Date() });
     expect(safe).not.toHaveProperty("qrPayload");
     expect(safe).not.toHaveProperty("pairingCode");
-    expect(safe.qrImage).toMatch(/^data:image\/png;base64,/);
+    expect(safe.qrImage).toBeNull();
   });
 
   it("requires authentication for owner-scoped control-center reads", async () => {

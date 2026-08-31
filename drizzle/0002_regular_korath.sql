@@ -1,0 +1,1 @@
+ALTER TABLE `whatsappSessions` ADD `qrSessionId` varchar(64);

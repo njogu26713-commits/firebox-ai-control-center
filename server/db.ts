@@ -63,9 +63,9 @@ export async function savePersona(ownerId: number, input: typeof defaultPersona)
 
 export async function getWhatsappSession(ownerId: number) {
   const db = await getDb();
-  if (!db) return { ownerId, id: 0, status: "not_configured" as const, phoneNumber: null, pairingCode: null, qrPayload: null, expiresAt: null, lastConnectedAt: null, lastError: null, createdAt: new Date(), updatedAt: new Date() };
+  if (!db) return { ownerId, id: 0, status: "not_configured" as const, phoneNumber: null, pairingCode: null, qrPayload: null, qrSessionId: null, expiresAt: null, lastConnectedAt: null, lastError: null, createdAt: new Date(), updatedAt: new Date() };
   const rows = await db.select().from(whatsappSessions).where(eq(whatsappSessions.ownerId, ownerId)).limit(1);
-  return rows[0] ?? { ownerId, id: 0, status: "not_configured" as const, phoneNumber: null, pairingCode: null, qrPayload: null, expiresAt: null, lastConnectedAt: null, lastError: null, createdAt: new Date(), updatedAt: new Date() };
+  return rows[0] ?? { ownerId, id: 0, status: "not_configured" as const, phoneNumber: null, pairingCode: null, qrPayload: null, qrSessionId: null, expiresAt: null, lastConnectedAt: null, lastError: null, createdAt: new Date(), updatedAt: new Date() };
 }
 
 export async function saveWhatsappSession(ownerId: number, input: Partial<typeof whatsappSessions.$inferInsert>) {

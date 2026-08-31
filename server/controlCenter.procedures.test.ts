@@ -7,8 +7,10 @@ const dbMocks = vi.hoisted(() => ({
   saveWhatsappSession: vi.fn(),
 }));
 const llmMock = vi.hoisted(() => vi.fn());
+const waMocks = vi.hoisted(() => ({ requestLiveQr: vi.fn(), requestLivePairingCode: vi.fn(), isCurrentQrSession: vi.fn(() => true) }));
 
 vi.mock("./db", () => dbMocks);
+vi.mock("./whatsappService", () => waMocks);
 vi.mock("./_core/llm", () => ({ invokeLLM: llmMock }));
 
 import { appRouter } from "./routers";
@@ -32,6 +34,8 @@ beforeEach(() => {
   dbMocks.getWhatsappSession.mockResolvedValue(session);
   dbMocks.saveWhatsappSession.mockImplementation(async (ownerId: number, input: object) => ({ ...session, ownerId, ...input }));
   llmMock.mockResolvedValue({ choices: [{ message: { content: "A helpful preview response." } }] });
+  waMocks.requestLiveQr.mockResolvedValue({ qrImage: "data:image/png;base64,live", expiresAt: new Date(Date.now() + 120000) });
+  waMocks.requestLivePairingCode.mockResolvedValue({ pairingCode: "ABCD-1234", expiresAt: new Date(Date.now() + 120000) });
 });
 
 describe("protected Firebox control-center procedures", () => {
@@ -45,6 +49,7 @@ describe("protected Firebox control-center procedures", () => {
 
   it("returns pairing metadata with expiry and strips raw QR payload from general output", async () => {
     const caller = appRouter.createCaller(ctx(42));
+    dbMocks.getWhatsappSession.mockResolvedValueOnce({ ...session, status: "waiting_qr" });
     const result = await caller.controlCenter.refreshQr();
     expect(result.status).toBe("waiting_qr");
     expect(result.qrImage).toMatch(/^data:image\/png;base64,/);
@@ -52,6 +57,8 @@ describe("protected Firebox control-center procedures", () => {
     expect(result.expiresAt).toBeInstanceOf(Date);
     const pairing = await caller.controlCenter.requestPairingCode({ phoneNumber: "+254769564723" });
     expect(pairing.pairingCode).toMatch(/^[A-F0-9]{4}-[A-F0-9]{4}$/);
+    expect(waMocks.requestLiveQr).toHaveBeenCalledWith(42);
+    expect(waMocks.requestLivePairingCode).toHaveBeenCalledWith(42, "+254769564723");
     expect(pairing.expiresAt).toBeInstanceOf(Date);
   });
 

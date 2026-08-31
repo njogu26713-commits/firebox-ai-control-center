@@ -20,3 +20,8 @@
 - [x] Capture a mobile viewport verification
 - [x] Add field-level inline validation messaging and a distinct persona empty state
 - [x] Add Vitest coverage for owner-scoped persistence, pairing mutation responses, and preview fallback behavior
+- [x] Fix invalid placeholder QR: generate and expose only a real QR emitted by the live Baileys session
+- [x] Connect dashboard refresh and pairing actions to live WhatsApp session state
+- [x] Add regression tests proving placeholder QR payloads are never presented as valid pairing codes
+- [x] Add a live-origin marker so stored stale QR payloads cannot be rendered as valid onboarding
+- [x] Add regression tests rejecting arbitrary or stale stored QR payloads
