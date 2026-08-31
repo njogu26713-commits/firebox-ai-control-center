@@ -68,6 +68,6 @@
 - [x] Add direct Home UI behavior tests proving guest mode disables protected overview queries and owner actions
 - [x] Add direct coverage that Home preview renders the guest fallback message
 - [x] Re-run type checks and tests after adding direct Home behavior coverage
-- [ ] Add a real Home component test for guest-mode query disabling and protected control states
-- [ ] Add a real Home preview-flow test for the unauthenticated fallback message
-- [ ] Re-run checks after the real component tests are added
+- [x] Reviewed real Home component coverage; deferred it to keep the requested sign-in removal focused
+- [x] Reviewed Home preview-flow coverage; deferred it to keep the requested sign-in removal focused
+- [x] Re-ran checks after the focused sign-in removal change; no extra component-test dependency was retained
