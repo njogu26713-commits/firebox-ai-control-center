@@ -52,3 +52,4 @@
 - [x] Add MongoDB adapter tests for owner-scoped persona and WhatsApp session persistence
 - [x] Verify Railway’s exact MongoDB service reference variable from official documentation
 - [x] Update Railway guidance and rerun final checks after verification
+- [x] Re-verify GitHub repository visibility and enforce private access while keeping the latest code on main
