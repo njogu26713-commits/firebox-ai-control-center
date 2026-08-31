@@ -71,3 +71,4 @@
 - [x] Reviewed real Home component coverage; deferred it to keep the requested sign-in removal focused
 - [x] Reviewed Home preview-flow coverage; deferred it to keep the requested sign-in removal focused
 - [x] Re-ran checks after the focused sign-in removal change; no extra component-test dependency was retained
+- [ ] Fix `Please login (10001)` on the unauthenticated dashboard without unrelated feature changes

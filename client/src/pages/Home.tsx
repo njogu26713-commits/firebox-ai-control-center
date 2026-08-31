@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Check, Clipboard, Copy, Link2, MessageCircle, Phone, RefreshCw, Save, ShieldCheck, Sparkles, Wifi, X } from "lucide-react";
 
 const ACTIONS = [
@@ -46,7 +47,10 @@ function StatusDot({ status }: { status: string }) {
 }
 
 export default function Home() {
-  const { data, isLoading, refetch } = trpc.controlCenter.overview.useQuery();
+  const { user, loading: authLoading } = useAuth();
+  const { data, isLoading, refetch } = trpc.controlCenter.overview.useQuery(undefined, {
+    enabled: !authLoading && Boolean(user),
+  });
   const savePersona = trpc.controlCenter.savePersona.useMutation({ onSuccess: () => { toast.success("Persona saved", { description: "Your WhatsApp assistant will use this behavior." }); refetch(); }, onError: (e) => toast.error("Couldn’t save persona", { description: e.message }) });
   const resetPersona = trpc.controlCenter.resetPersona.useMutation({ onSuccess: (saved) => { setPersona(readPersona(saved)); toast.success("Persona reset"); }, onError: (e) => toast.error("Couldn’t reset persona", { description: e.message }) });
   const refreshQr = trpc.controlCenter.refreshQr.useMutation({ onSuccess: () => { refetch(); toast.success("New QR code ready"); }, onError: (e) => toast.error("Couldn’t generate QR", { description: e.message }) });
