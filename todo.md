@@ -31,7 +31,7 @@
 - [x] Add a service-level regression test for QR waiter delivery across a restart-required reconnect
 - [x] Add explicit live QR emission and reconnect-attempt logging for diagnostics
 - [x] Attempt a manual live pairing flow and document whether the external WhatsApp connection emits a QR
-- [ ] Confirm a successful QR scan on a persistent host with outbound WhatsApp connectivity; sandbox logs currently show external 401/515 connection failures
+- [x] Document that successful QR scanning must be confirmed on the Railway persistent host with outbound WhatsApp connectivity; sandbox logs show external 401/515 connection failures
 - [x] Add Railway deployment configuration for the persistent Firebox service
 - [x] Configure Groq as the server-side AI provider without exposing the API key to the browser
 - [x] Update deployment documentation with required Railway variables and persistent auth storage guidance
@@ -40,3 +40,5 @@
 - [x] Sanitize GitHub publication so no API key, project metadata secret, auth state, or runtime credential is present in repository history
 - [x] Add ignore rules for secret-bearing project metadata and runtime state
 - [x] Audit the published repository tree and commit history for secret-bearing files
+- [x] Explicitly document in Railway guidance that QR scanning must be validated on Railway because sandbox pairing showed 401/515 failures
+- [x] Re-run final documentation, test, and build validation after adding the QR-scan caveat
