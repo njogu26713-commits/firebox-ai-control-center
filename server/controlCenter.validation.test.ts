@@ -28,9 +28,12 @@ describe("control center validation", () => {
     expect(safe.qrImage).toBeNull();
   });
 
-  it("requires authentication for owner-scoped control-center reads", async () => {
+  it("allows unauthenticated control-center reads in the public workspace", async () => {
     const caller = appRouter.createCaller({ user: null, req: {} as any, res: {} as any });
-    await expect(caller.controlCenter.overview()).rejects.toThrow();
+    const result = await caller.controlCenter.overview();
+    expect(result.account.plan).toBe("Public workspace");
+    expect(result.persona.ownerId).toBe(0);
+    expect(result.session.ownerId).toBe(0);
   });
 
   it("rejects arbitrary actions and malformed persona fields", () => {

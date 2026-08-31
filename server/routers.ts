@@ -3,8 +3,8 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { invokeGroq } from "./groq";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { getPersona, getWhatsappSession, savePersona, saveWhatsappSession } from "./db";
+import { publicProcedure, router } from "./_core/trpc";
+import { getPersona, getWhatsappSession, PUBLIC_OWNER_ID, savePersona, saveWhatsappSession } from "./db";
 import QRCode from "qrcode";
 import { isCurrentQrSession, requestLivePairingCode, requestLiveQr } from "./whatsappService";
 
@@ -26,6 +26,10 @@ export const personaInput = z.object({
   enabledActions: z.array(z.enum(actionIds)).min(1).max(7),
 });
 
+function workspaceOwnerId(ctx: { user?: { id: number } | null }) {
+  return ctx.user?.id ?? PUBLIC_OWNER_ID;
+}
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -37,42 +41,46 @@ export const appRouter = router({
     }),
   }),
   controlCenter: router({
-    overview: protectedProcedure.query(async ({ ctx }) => ({
-      persona: await getPersona(ctx.user.id),
-      session: await presentSession(await getWhatsappSession(ctx.user.id)),
-      account: { name: ctx.user.name ?? "Firebox owner", email: ctx.user.email ?? "", plan: "Owner workspace" },
+    overview: publicProcedure.query(async ({ ctx }) => ({
+      persona: await getPersona(workspaceOwnerId(ctx)),
+      session: await presentSession(await getWhatsappSession(workspaceOwnerId(ctx))),
+      account: {
+        name: ctx.user?.name ?? "Public Firebox workspace",
+        email: ctx.user?.email ?? "",
+        plan: ctx.user ? "Owner workspace" : "Public workspace",
+      },
     })),
-    getPersona: protectedProcedure.query(({ ctx }) => getPersona(ctx.user.id)),
-    savePersona: protectedProcedure.input(personaInput).mutation(({ ctx, input }) => savePersona(ctx.user.id, { ...input, enabledActions: JSON.stringify(input.enabledActions) })),
-    resetPersona: protectedProcedure.mutation(({ ctx }) => savePersona(ctx.user.id, {
+    getPersona: publicProcedure.query(({ ctx }) => getPersona(workspaceOwnerId(ctx))),
+    savePersona: publicProcedure.input(personaInput).mutation(({ ctx, input }) => savePersona(workspaceOwnerId(ctx), { ...input, enabledActions: JSON.stringify(input.enabledActions) })),
+    resetPersona: publicProcedure.mutation(({ ctx }) => savePersona(workspaceOwnerId(ctx), {
       assistantName: "Firebox AI", tone: "Warm, concise, and capable", role: "WhatsApp automation guide",
       behaviorInstructions: "Answer naturally, ask one clarifying question when needed, and make the next best step obvious.",
       welcomeMessage: "Hi, I’m Firebox AI. What can I help you build today?",
       guardrails: "Never invent links, expose credentials, execute code, or claim an action was completed when it was not.",
       enabledActions: JSON.stringify(actionIds),
     })),
-    session: protectedProcedure.query(({ ctx }) => getWhatsappSession(ctx.user.id).then(presentSession)),
-    refreshQr: protectedProcedure.mutation(async ({ ctx }) => {
+    session: publicProcedure.query(({ ctx }) => getWhatsappSession(workspaceOwnerId(ctx)).then(presentSession)),
+    refreshQr: publicProcedure.mutation(async ({ ctx }) => {
       try {
-        const live = await requestLiveQr(ctx.user.id);
-        const safe = await presentSession(await getWhatsappSession(ctx.user.id));
+        const live = await requestLiveQr(workspaceOwnerId(ctx));
+        const safe = await presentSession(await getWhatsappSession(workspaceOwnerId(ctx)));
         return { ...safe, qrImage: live.qrImage, expiresAt: live.expiresAt };
       } catch (error) {
-        await saveWhatsappSession(ctx.user.id, { status: "error", lastError: error instanceof Error ? error.message : "Live QR unavailable" });
+        await saveWhatsappSession(workspaceOwnerId(ctx), { status: "error", lastError: error instanceof Error ? error.message : "Live QR unavailable" });
         throw error;
       }
     }),
-    requestPairingCode: protectedProcedure.input(z.object({ phoneNumber: phoneNumberInput })).mutation(async ({ ctx, input }) => {
+    requestPairingCode: publicProcedure.input(z.object({ phoneNumber: phoneNumberInput })).mutation(async ({ ctx, input }) => {
       try {
-        const live = await requestLivePairingCode(ctx.user.id, input.phoneNumber);
-        return { ...(await presentSession(await getWhatsappSession(ctx.user.id))), pairingCode: live.pairingCode, expiresAt: live.expiresAt };
+        const live = await requestLivePairingCode(workspaceOwnerId(ctx), input.phoneNumber);
+        return { ...(await presentSession(await getWhatsappSession(workspaceOwnerId(ctx)))), pairingCode: live.pairingCode, expiresAt: live.expiresAt };
       } catch (error) {
-        await saveWhatsappSession(ctx.user.id, { status: "error", lastError: error instanceof Error ? error.message : "Live pairing unavailable" });
+        await saveWhatsappSession(workspaceOwnerId(ctx), { status: "error", lastError: error instanceof Error ? error.message : "Live pairing unavailable" });
         throw error;
       }
     }),
-    preview: protectedProcedure.input(z.object({ message: z.string().trim().min(1).max(500) })).mutation(async ({ ctx, input }) => {
-      const saved = await getPersona(ctx.user.id);
+    preview: publicProcedure.input(z.object({ message: z.string().trim().min(1).max(500) })).mutation(async ({ ctx, input }) => {
+      const saved = await getPersona(workspaceOwnerId(ctx));
       const prompt = `You are ${saved.assistantName}. Role: ${saved.role}. Tone: ${saved.tone}. Behavior: ${saved.behaviorInstructions}. Guardrails: ${saved.guardrails}. Respond concisely to this WhatsApp message: ${input.message}`;
       try {
         const content = await invokeGroq([{ role: "system", content: prompt }, { role: "user", content: input.message }]);

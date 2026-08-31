@@ -27,6 +27,9 @@ export type WhatsappSession = {
   expiresAt: Date | null; lastConnectedAt: Date | null; lastError: string | null; createdAt: Date; updatedAt: Date;
 };
 
+// Anonymous visitors share this workspace. Authenticated users can still use their existing owner ID.
+export const PUBLIC_OWNER_ID = 0;
+
 const defaultPersona = {
   assistantName: "Firebox AI",
   tone: "Warm, concise, and capable",

@@ -4,8 +4,8 @@ This project is prepared for Railway as a persistent Node.js service. Deploy the
 
 | Variable | Purpose |
 |---|---|
-| `MONGODB_URI` | MongoDB connection string provided by Railway’s MongoDB service for owner-scoped personas and WhatsApp session metadata |
-| `JWT_SECRET` | Session signing secret for the control-center login flow |
+| `MONGODB_URI` | MongoDB connection string provided by Railway’s MongoDB service for shared public-workspace personas and WhatsApp session metadata |
+| `JWT_SECRET` | Session signing secret retained for optional legacy OAuth/session support; the control center itself does not require login |
 | `MONGODB_DB_NAME` | Optional database name; defaults to `firebox` |
 | `GROQ_API_KEY` | Server-side Groq credential for assistant preview and AI responses; never expose it to the browser |
 | `GROQ_MODEL` | Optional Groq model override; defaults to `llama-3.3-70b-versatile` |
@@ -16,4 +16,4 @@ Add Railway’s MongoDB service to the same project and reference its private co
 
 The build uses `corepack enable && pnpm install --frozen-lockfile && pnpm build`; the runtime uses `pnpm start`. The project pins Node.js 20.18.0 through `package.json` and `.nvmrc`, and the start command enables the WebCrypto compatibility flag required by Baileys. Railway supplies the `PORT` variable, which the application already reads dynamically. The healthcheck targets `/`, which serves the control-center shell. Trigger a fresh Railway deployment after pulling this commit so the Node runtime and start command are refreshed.
 
-Never commit `.env`, Baileys auth files, API keys, database credentials, or generated runtime state. Add secrets through Railway’s Variables UI. After deployment, open the control center, sign in, generate a fresh QR, and scan it promptly from WhatsApp → Linked devices → Link a device. Validate this step on the Railway service itself: the development sandbox has previously received external WhatsApp 401/515 connection failures and cannot be treated as proof that a QR is valid or that pairing succeeded. A successful scan must be confirmed from the persistent Railway runtime with outbound WhatsApp connectivity.
+Never commit `.env`, Baileys auth files, API keys, database credentials, or generated runtime state. Add secrets through Railway’s Variables UI. After deployment, open the public control center, generate a fresh QR, and scan it promptly from WhatsApp → Linked devices → Link a device. Validate this step on the Railway service itself: the development sandbox has previously received external WhatsApp 401/515 connection failures and cannot be treated as proof that a QR is valid or that pairing succeeded. A successful scan must be confirmed from the persistent Railway runtime with outbound WhatsApp connectivity.
