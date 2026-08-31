@@ -56,6 +56,6 @@
 - [x] Fix Railway crash: Baileys imports globalThis.crypto but Railway is running Node.js v18.20.5 without global WebCrypto
 - [x] Add a production startup compatibility regression check for the crypto shim or Node runtime target
 - [x] Push the crash fix and document the required Railway redeploy/runtime setting
-- [ ] Run and record a real production startup check for the WebCrypto compatibility fix
-- [ ] Push the crash-fix files to GitHub and verify the remote branch contains them
-- [ ] Re-run final validation after the production startup and remote checks
+- [x] Run and record a real production startup check for the WebCrypto compatibility fix
+- [x] Push the crash-fix files to GitHub and verify the remote branch contains them
+- [x] Re-run final validation after the production startup and remote checks
