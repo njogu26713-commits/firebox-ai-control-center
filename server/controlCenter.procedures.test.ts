@@ -6,12 +6,12 @@ const dbMocks = vi.hoisted(() => ({
   getWhatsappSession: vi.fn(),
   saveWhatsappSession: vi.fn(),
 }));
-const llmMock = vi.hoisted(() => vi.fn());
+const groqMock = vi.hoisted(() => vi.fn());
 const waMocks = vi.hoisted(() => ({ requestLiveQr: vi.fn(), requestLivePairingCode: vi.fn(), isCurrentQrSession: vi.fn(() => true) }));
 
 vi.mock("./db", () => dbMocks);
 vi.mock("./whatsappService", () => waMocks);
-vi.mock("./_core/llm", () => ({ invokeLLM: llmMock }));
+vi.mock("./groq", () => ({ invokeGroq: groqMock }));
 
 import { appRouter } from "./routers";
 
@@ -33,7 +33,7 @@ beforeEach(() => {
   dbMocks.savePersona.mockImplementation(async (ownerId: number, input: object) => ({ ...persona, ownerId, ...input }));
   dbMocks.getWhatsappSession.mockResolvedValue(session);
   dbMocks.saveWhatsappSession.mockImplementation(async (ownerId: number, input: object) => ({ ...session, ownerId, ...input }));
-  llmMock.mockResolvedValue({ choices: [{ message: { content: "A helpful preview response." } }] });
+  groqMock.mockResolvedValue("A helpful preview response.");
   waMocks.requestLiveQr.mockResolvedValue({ qrImage: "data:image/png;base64,live", expiresAt: new Date(Date.now() + 120000) });
   waMocks.requestLivePairingCode.mockResolvedValue({ pairingCode: "ABCD-1234", expiresAt: new Date(Date.now() + 120000) });
 });
@@ -66,8 +66,8 @@ describe("protected Firebox control-center procedures", () => {
     const caller = appRouter.createCaller(ctx(42));
     const success = await caller.controlCenter.preview({ message: "Hello" });
     expect(success.message).toBe("A helpful preview response.");
-    expect(llmMock).toHaveBeenCalled();
-    llmMock.mockRejectedValueOnce(new Error("provider offline"));
+    expect(groqMock).toHaveBeenCalled();
+    groqMock.mockRejectedValueOnce(new Error("provider offline"));
     const fallback = await caller.controlCenter.preview({ message: "Hello again" });
     expect(fallback.message).toMatch(/temporarily unavailable/i);
   });

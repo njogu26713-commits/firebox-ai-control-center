@@ -2,7 +2,7 @@ import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { invokeLLM } from "./_core/llm";
+import { invokeGroq } from "./groq";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { getPersona, getWhatsappSession, savePersona, saveWhatsappSession } from "./db";
 import QRCode from "qrcode";
@@ -75,9 +75,8 @@ export const appRouter = router({
       const saved = await getPersona(ctx.user.id);
       const prompt = `You are ${saved.assistantName}. Role: ${saved.role}. Tone: ${saved.tone}. Behavior: ${saved.behaviorInstructions}. Guardrails: ${saved.guardrails}. Respond concisely to this WhatsApp message: ${input.message}`;
       try {
-        const result = await invokeLLM({ messages: [{ role: "system", content: prompt }, { role: "user", content: input.message }] });
-        const content = result.choices?.[0]?.message?.content;
-        return { message: typeof content === "string" ? content : "I’m ready to help. Try another message." };
+        const content = await invokeGroq([{ role: "system", content: prompt }, { role: "user", content: input.message }]);
+        return { message: content };
       } catch (error) {
         console.error("[preview] LLM failed", error);
         return { message: "Preview is temporarily unavailable. Your persona settings are still safe and saved locally in this form." };

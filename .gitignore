@@ -112,3 +112,8 @@ temp/
 # Manus version file (auto-generated, not part of source)
 client/public/__manus__/version.json
 .project-config.json
+
+# WhatsApp authentication state and pairing credentials
+whatsapp_auth/
+auth_info/
+whatsapp-auth/

@@ -32,3 +32,11 @@
 - [x] Add explicit live QR emission and reconnect-attempt logging for diagnostics
 - [x] Attempt a manual live pairing flow and document whether the external WhatsApp connection emits a QR
 - [ ] Confirm a successful QR scan on a persistent host with outbound WhatsApp connectivity; sandbox logs currently show external 401/515 connection failures
+- [x] Add Railway deployment configuration for the persistent Firebox service
+- [x] Configure Groq as the server-side AI provider without exposing the API key to the browser
+- [x] Update deployment documentation with required Railway variables and persistent auth storage guidance
+- [x] Create a private GitHub repository and push the Railway-ready project
+- [x] Validate the repository contents, tests, and deployment configuration
+- [x] Sanitize GitHub publication so no API key, project metadata secret, auth state, or runtime credential is present in repository history
+- [x] Add ignore rules for secret-bearing project metadata and runtime state
+- [x] Audit the published repository tree and commit history for secret-bearing files
