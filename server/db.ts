@@ -1,40 +1,31 @@
-import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, personas, users, whatsappSessions } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import { MongoClient, type Db } from "mongodb";
+import { ENV } from "./_core/env";
 
-let _db: ReturnType<typeof drizzle> | null = null;
+export type User = {
+  id: number; openId: string; name: string | null; email: string | null; loginMethod: string | null;
+  role: "user" | "admin"; createdAt: Date; updatedAt: Date; lastSignedIn: Date;
+};
 
-export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try { _db = drizzle(process.env.DATABASE_URL); }
-    catch (error) { console.warn("[Database] Failed to connect:", error); _db = null; }
-  }
-  return _db;
-}
+type UserInput = {
+  openId: string;
+  name?: string | null;
+  email?: string | null;
+  loginMethod?: string | null;
+  role?: "user" | "admin";
+  lastSignedIn?: Date;
+};
 
-export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) throw new Error("User openId is required for upsert");
-  const db = await getDb();
-  if (!db) return;
-  const values: InsertUser = { openId: user.openId, lastSignedIn: user.lastSignedIn ?? new Date() };
-  const updateSet: Record<string, unknown> = { lastSignedIn: values.lastSignedIn };
-  for (const field of ["name", "email", "loginMethod"] as const) {
-    if (user[field] !== undefined) { values[field] = user[field] ?? null; updateSet[field] = user[field] ?? null; }
-  }
-  if (user.role !== undefined || user.openId === ENV.ownerOpenId) {
-    values.role = user.role ?? "admin";
-    updateSet.role = values.role;
-  }
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
-}
+export type Persona = {
+  ownerId: number; id: number | string; assistantName: string; tone: string; role: string;
+  behaviorInstructions: string; welcomeMessage: string; guardrails: string; enabledActions: string;
+  createdAt: Date; updatedAt: Date;
+};
 
-export async function getUserByOpenId(openId: string) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result[0];
-}
+export type WhatsappSession = {
+  ownerId: number; id: number | string; status: "not_configured" | "waiting_qr" | "waiting_pairing" | "connected" | "error";
+  phoneNumber: string | null; pairingCode: string | null; qrPayload: string | null; qrSessionId: string | null;
+  expiresAt: Date | null; lastConnectedAt: Date | null; lastError: string | null; createdAt: Date; updatedAt: Date;
+};
 
 const defaultPersona = {
   assistantName: "Firebox AI",
@@ -46,33 +37,120 @@ const defaultPersona = {
   enabledActions: JSON.stringify(["whatsapp_bots", "automation", "deployment", "github", "contact", "firebox"]),
 };
 
-export async function getPersona(ownerId: number) {
+let client: MongoClient | null = null;
+let database: Db | null = null;
+let connectPromise: Promise<Db | null> | null = null;
+let indexesReady = false;
+
+export async function getDb() {
+  if (database) return database;
+  if (!process.env.MONGODB_URI) {
+    console.warn("[Database] MONGODB_URI is not configured");
+    return null;
+  }
+  if (!connectPromise) {
+    connectPromise = (async () => {
+      try {
+        client = new MongoClient(process.env.MONGODB_URI!, { serverSelectionTimeoutMS: 5000 });
+        await client.connect();
+        database = client.db(process.env.MONGODB_DB_NAME ?? "firebox");
+        if (!indexesReady) {
+          await Promise.all([
+            database.collection("users").createIndex({ openId: 1 }, { unique: true }),
+            database.collection("personas").createIndex({ ownerId: 1 }, { unique: true }),
+            database.collection("whatsappSessions").createIndex({ ownerId: 1 }, { unique: true }),
+          ]);
+          indexesReady = true;
+        }
+        return database;
+      } catch (error) {
+        console.warn("[Database] MongoDB connection failed:", error);
+        client = null;
+        database = null;
+        connectPromise = null;
+        return null;
+      }
+    })();
+  }
+  return connectPromise;
+}
+
+function stableUserId(openId: string) {
+  let hash = 0;
+  for (const char of openId) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return Math.abs(hash) || 1;
+}
+
+export async function upsertUser(user: UserInput): Promise<void> {
+  if (!user.openId) throw new Error("User openId is required for upsert");
+  const db = await getDb();
+  if (!db) return;
+  const now = user.lastSignedIn ?? new Date();
+  const update = {
+    id: stableUserId(user.openId),
+    openId: user.openId,
+    name: user.name ?? null,
+    email: user.email ?? null,
+    loginMethod: user.loginMethod ?? null,
+    role: user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : "user"),
+    lastSignedIn: now,
+    updatedAt: now,
+  };
+  await db.collection("users").updateOne({ openId: user.openId }, { $set: update, $setOnInsert: { createdAt: now } }, { upsert: true });
+}
+
+export async function getUserByOpenId(openId: string): Promise<User | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const row = await db.collection("users").findOne({ openId }) as unknown as Partial<User> | null;
+  if (!row?.openId) return undefined;
+  return {
+    id: row.id ?? stableUserId(openId), openId: row.openId, name: row.name ?? null, email: row.email ?? null,
+    loginMethod: row.loginMethod ?? null, role: row.role ?? "user", createdAt: row.createdAt ?? new Date(),
+    updatedAt: row.updatedAt ?? new Date(), lastSignedIn: row.lastSignedIn ?? new Date(),
+  };
+}
+
+export async function getPersona(ownerId: number): Promise<Persona> {
   const db = await getDb();
   if (!db) return { ownerId, id: 0, ...defaultPersona, createdAt: new Date(), updatedAt: new Date() };
-  const rows = await db.select().from(personas).where(eq(personas.ownerId, ownerId)).limit(1);
-  return rows[0] ?? { ownerId, id: 0, ...defaultPersona, createdAt: new Date(), updatedAt: new Date() };
+  const row = await db.collection("personas").findOne({ ownerId }) as unknown as (Partial<Persona> & { _id?: unknown }) | null;
+  return row ? { ...(row as Persona), id: String(row._id ?? row.id) } : { ownerId, id: 0, ...defaultPersona, createdAt: new Date(), updatedAt: new Date() };
 }
 
 export async function savePersona(ownerId: number, input: typeof defaultPersona) {
   const db = await getDb();
-  const values = { ownerId, ...input };
-  if (!db) return { ownerId, id: 0, ...input, createdAt: new Date(), updatedAt: new Date() };
-  await db.insert(personas).values(values).onDuplicateKeyUpdate({ set: input });
+  const now = new Date();
+  if (!db) return { ownerId, id: 0, ...input, createdAt: now, updatedAt: now };
+  await db.collection("personas").updateOne({ ownerId }, { $set: { ownerId, ...input, updatedAt: now }, $setOnInsert: { createdAt: now } }, { upsert: true });
   return getPersona(ownerId);
 }
 
-export async function getWhatsappSession(ownerId: number) {
+const emptySession = (ownerId: number): WhatsappSession => ({
+  ownerId, id: 0, status: "not_configured" as const, phoneNumber: null, pairingCode: null,
+  qrPayload: null, qrSessionId: null, expiresAt: null, lastConnectedAt: null, lastError: null,
+  createdAt: new Date(), updatedAt: new Date(),
+});
+
+export async function getWhatsappSession(ownerId: number): Promise<WhatsappSession> {
   const db = await getDb();
-  if (!db) return { ownerId, id: 0, status: "not_configured" as const, phoneNumber: null, pairingCode: null, qrPayload: null, qrSessionId: null, expiresAt: null, lastConnectedAt: null, lastError: null, createdAt: new Date(), updatedAt: new Date() };
-  const rows = await db.select().from(whatsappSessions).where(eq(whatsappSessions.ownerId, ownerId)).limit(1);
-  return rows[0] ?? { ownerId, id: 0, status: "not_configured" as const, phoneNumber: null, pairingCode: null, qrPayload: null, qrSessionId: null, expiresAt: null, lastConnectedAt: null, lastError: null, createdAt: new Date(), updatedAt: new Date() };
+  if (!db) return emptySession(ownerId);
+  const row = await db.collection("whatsappSessions").findOne({ ownerId }) as unknown as (Partial<WhatsappSession> & { _id?: unknown }) | null;
+  return row ? { ...(row as WhatsappSession), id: String(row._id ?? row.id) } : emptySession(ownerId);
 }
 
-export async function saveWhatsappSession(ownerId: number, input: Partial<typeof whatsappSessions.$inferInsert>) {
+export async function saveWhatsappSession(ownerId: number, input: Record<string, unknown>) {
   const db = await getDb();
-  if (!db) return { ...(await getWhatsappSession(ownerId)), ...input };
-  const existing = await getWhatsappSession(ownerId);
-  if (existing.id) await db.update(whatsappSessions).set(input).where(eq(whatsappSessions.ownerId, ownerId));
-  else await db.insert(whatsappSessions).values({ ownerId, status: "not_configured", ...input });
+  const now = new Date();
+  if (!db) return { ...(await getWhatsappSession(ownerId)), ...input, updatedAt: now };
+  await db.collection("whatsappSessions").updateOne({ ownerId }, { $set: { ownerId, ...input, updatedAt: now }, $setOnInsert: { createdAt: now } }, { upsert: true });
   return getWhatsappSession(ownerId);
+}
+
+export async function closeDb() {
+  await client?.close();
+  client = null;
+  database = null;
+  connectPromise = null;
+  indexesReady = false;
 }

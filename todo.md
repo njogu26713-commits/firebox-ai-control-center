@@ -42,3 +42,13 @@
 - [x] Audit the published repository tree and commit history for secret-bearing files
 - [x] Explicitly document in Railway guidance that QR scanning must be validated on Railway because sandbox pairing showed 401/515 failures
 - [x] Re-run final documentation, test, and build validation after adding the QR-scan caveat
+- [x] Replace the control-center MySQL/TiDB persistence adapter with MongoDB
+- [x] Preserve owner-scoped persona and WhatsApp session reads and writes in MongoDB
+- [x] Replace Railway DATABASE_URL guidance with server-side MONGODB_URI guidance
+- [x] Update tests and documentation for MongoDB deployment
+- [x] Use Railway’s MongoDB service rather than MySQL/TiDB for control-center persistence
+- [x] Configure the app to read only server-side MONGODB_URI for MongoDB connectivity
+- [x] Document Railway MongoDB service setup and variable reference without committing credentials
+- [x] Add MongoDB adapter tests for owner-scoped persona and WhatsApp session persistence
+- [x] Verify Railway’s exact MongoDB service reference variable from official documentation
+- [x] Update Railway guidance and rerun final checks after verification
