@@ -1,13 +1,17 @@
 import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState } from "@whiskeysockets/baileys";
 import QRCode from "qrcode";
 import { randomUUID } from "node:crypto";
+import { rm } from "node:fs/promises";
 import { getWhatsappSession, saveWhatsappSession } from "./db";
+import { createQrWaiter } from "./qrWaiter";
 
 let socket: ReturnType<typeof makeWASocket> | null = null;
 let socketReady: Promise<ReturnType<typeof makeWASocket>> | null = null;
 let activeOwnerId: number | null = null;
 let latestQr: { ownerId: number; payload: string; sessionId: string; expiresAt: Date } | null = null;
-let qrWaiter: ((payload: string) => void) | null = null;
+let qrWaiter: ReturnType<typeof createQrWaiter> | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let resettingForPairing = false;
 
 const authDir = process.env.WHATSAPP_AUTH_DIR ?? "./whatsapp_auth";
 
@@ -29,7 +33,8 @@ export async function ensureWhatsappSocket(ownerId: number) {
         const expiresAt = new Date(Date.now() + 120000);
         const sessionId = randomUUID();
         latestQr = { ownerId: activeOwnerId, payload: qr, sessionId, expiresAt };
-        qrWaiter?.(qr);
+        console.info(`[WhatsApp] Live QR emitted for owner ${activeOwnerId}`);
+        qrWaiter?.resolve(qr);
         qrWaiter = null;
         await saveWhatsappSession(activeOwnerId, { status: "waiting_qr", qrPayload: qr, qrSessionId: sessionId, pairingCode: null, expiresAt, lastError: null });
       }
@@ -40,9 +45,19 @@ export async function ensureWhatsappSocket(ownerId: number) {
       if (connection === "close" && activeOwnerId) {
         const code = (lastDisconnect?.error as any)?.output?.statusCode;
         const status = code === DisconnectReason.loggedOut ? "error" : "expired";
+        console.warn(`[WhatsApp] Connection closed with code ${code ?? "unknown"}; ${status === "expired" ? "retrying" : "manual re-pair required"}`);
         await saveWhatsappSession(activeOwnerId, { status, lastError: `WhatsApp connection closed (${code ?? "unknown"})` });
         socket = null;
         socketReady = null;
+        if (!resettingForPairing && code !== DisconnectReason.loggedOut && activeOwnerId && !reconnectTimer) {
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            if (activeOwnerId) {
+              console.info(`[WhatsApp] Reconnecting socket for owner ${activeOwnerId}`);
+              void ensureWhatsappSocket(activeOwnerId);
+            }
+          }, 750);
+        }
       }
     });
     socket = sock;
@@ -51,25 +66,37 @@ export async function ensureWhatsappSocket(ownerId: number) {
   return socketReady;
 }
 
+function waitForQrEvent(timeoutMs = 45000) {
+  const waiter = createQrWaiter(timeoutMs);
+  qrWaiter = waiter;
+  return waiter;
+}
+
 export async function requestLiveQr(ownerId: number) {
-  const sock = await ensureWhatsappSocket(ownerId);
-  if (latestQr && latestQr.ownerId === ownerId && latestQr.expiresAt.getTime() > Date.now()) {
-    return { qrImage: await QRCode.toDataURL(latestQr.payload, { margin: 1, width: 420 }), expiresAt: latestQr.expiresAt };
+  if (socket?.user) throw new Error("WhatsApp is already connected");
+  const pendingQr = waitForQrEvent();
+  resettingForPairing = true;
+  if (socket) {
+    try { socket.end(new Error("fresh pairing session requested")); } catch { /* socket already closed */ }
   }
-  return new Promise<{ qrImage: string; expiresAt: Date }>((resolve, reject) => {
-    const timeout = setTimeout(() => { qrWaiter = null; reject(new Error("Timed out waiting for a live WhatsApp QR code")); }, 15000);
-    qrWaiter = async (payload) => {
-      clearTimeout(timeout);
-      const expiresAt = new Date(Date.now() + 120000);
-      resolve({ qrImage: await QRCode.toDataURL(payload, { margin: 1, width: 420 }), expiresAt });
-    };
-    if (!sock) reject(new Error("WhatsApp socket is unavailable"));
-  });
+  socket = null;
+  socketReady = null;
+  latestQr = null;
+  await rm(authDir, { recursive: true, force: true });
+  resettingForPairing = false;
+  await ensureWhatsappSocket(ownerId);
+  const currentQr = latestQr as { ownerId: number; payload: string; sessionId: string; expiresAt: Date } | null;
+  const payload = currentQr && currentQr.ownerId === ownerId && currentQr.expiresAt.getTime() > Date.now() ? currentQr.payload : await pendingQr.promise;
+  const expiresAt = currentQr?.ownerId === ownerId && currentQr.expiresAt.getTime() > Date.now() ? currentQr.expiresAt : new Date(Date.now() + 120000);
+  pendingQr.cancel();
+  qrWaiter = null;
+  return { qrImage: await QRCode.toDataURL(payload, { margin: 1, width: 420 }), expiresAt };
 }
 
 export async function requestLivePairingCode(ownerId: number, phoneNumber: string) {
   const sock = await ensureWhatsappSocket(ownerId);
-  if (sock.user) throw new Error("WhatsApp is already connected");
+  if ((sock as any).authState?.creds?.registered || sock.user) throw new Error("WhatsApp is already connected");
+  if (!latestQr || latestQr.ownerId !== ownerId || latestQr.expiresAt.getTime() <= Date.now()) await waitForQrEvent(20000).promise;
   const pairingCode = await sock.requestPairingCode(phoneNumber.replace(/\D/g, ""));
   const expiresAt = new Date(Date.now() + 120000);
   await saveWhatsappSession(ownerId, { status: "waiting_pairing", phoneNumber, pairingCode, qrPayload: null, expiresAt, lastError: null });

@@ -25,3 +25,10 @@
 - [x] Add regression tests proving placeholder QR payloads are never presented as valid pairing codes
 - [x] Add a live-origin marker so stored stale QR payloads cannot be rendered as valid onboarding
 - [x] Add regression tests rejecting arbitrary or stale stored QR payloads
+- [x] Fix live Baileys QR timeout shown in dashboard pairing flow
+- [x] Add deterministic QR event/retry handling when the socket is still connecting
+- [x] Verify the dashboard no longer reports a false timeout when a live QR is available
+- [x] Add a service-level regression test for QR waiter delivery across a restart-required reconnect
+- [x] Add explicit live QR emission and reconnect-attempt logging for diagnostics
+- [x] Attempt a manual live pairing flow and document whether the external WhatsApp connection emits a QR
+- [ ] Confirm a successful QR scan on a persistent host with outbound WhatsApp connectivity; sandbox logs currently show external 401/515 connection failures
