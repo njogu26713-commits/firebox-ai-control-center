@@ -1,0 +1,22 @@
+# Project TODO
+
+- [x] Create responsive Firebox AI control-center dashboard shell with persistent navigation
+- [x] Show WhatsApp connection state, account summary, and health indicators
+- [x] Add QR-code onboarding with loading, expiry, refresh, copy, retry, and error states
+- [x] Add phone-number pairing-code onboarding with loading, expiry, refresh, copy, retry, and error states
+- [x] Keep WhatsApp pairing secrets and AI credentials behind protected server-side procedures
+- [x] Add owner-scoped pairing/session metadata persistence
+- [x] Add persona workspace for assistant name, tone, role, behavior instructions, welcome message, and guardrails
+- [x] Add configurable enabled conversation actions with validation
+- [x] Persist persona settings scoped to the signed-in owner
+- [x] Add server-side in-dashboard assistant preview using the saved persona
+- [x] Add save, reset, validation, empty, and error feedback states
+- [x] Add Vitest coverage for owner scoping, persona persistence, pairing metadata, and preview behavior
+- [x] Verify responsive UI visually on desktop and mobile viewports
+- [x] Keep raw QR payloads server-side and expose only rendered onboarding output
+- [x] Add explicit in-page expired, retry, and error states for QR and phone pairing
+- [x] Add inline persona field validation and empty states
+- [x] Add tests for owner-scoped reads/writes, pairing metadata mutations, and preview behavior
+- [x] Capture a mobile viewport verification
+- [x] Add field-level inline validation messaging and a distinct persona empty state
+- [x] Add Vitest coverage for owner-scoped persistence, pairing mutation responses, and preview fallback behavior

@@ -1,17 +1,7 @@
 import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
-/**
- * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
- */
 export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
@@ -22,7 +12,35 @@ export const users = mysqlTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
+export const personas = mysqlTable("personas", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerId: int("ownerId").notNull().unique(),
+  assistantName: varchar("assistantName", { length: 80 }).notNull().default("Firebox AI"),
+  tone: varchar("tone", { length: 80 }).notNull().default("Warm, concise, and capable"),
+  role: varchar("role", { length: 160 }).notNull().default("WhatsApp automation guide"),
+  behaviorInstructions: text("behaviorInstructions").notNull(),
+  welcomeMessage: text("welcomeMessage").notNull(),
+  guardrails: text("guardrails").notNull(),
+  enabledActions: text("enabledActions").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const whatsappSessions = mysqlTable("whatsappSessions", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerId: int("ownerId").notNull().unique(),
+  status: mysqlEnum("status", ["not_configured", "waiting_qr", "waiting_pairing", "connected", "expired", "error"]).notNull().default("not_configured"),
+  phoneNumber: varchar("phoneNumber", { length: 32 }),
+  pairingCode: varchar("pairingCode", { length: 32 }),
+  qrPayload: text("qrPayload"),
+  expiresAt: timestamp("expiresAt"),
+  lastConnectedAt: timestamp("lastConnectedAt"),
+  lastError: text("lastError"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
-
-// TODO: Add your tables here
+export type Persona = typeof personas.$inferSelect;
+export type WhatsappSession = typeof whatsappSessions.$inferSelect;
