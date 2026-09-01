@@ -6,6 +6,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
+import { restoreWhatsappOnStartup, shutdownWhatsapp } from "../whatsappService";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 
@@ -60,7 +61,22 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    // Recreate the Baileys socket from the persisted auth directory after every deploy.
+    void restoreWhatsappOnStartup().catch(error => {
+      console.error("[WhatsApp] Startup restore crashed:", error);
+    });
   });
+
+  let shuttingDown = false;
+  const handleShutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    shutdownWhatsapp();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 10000).unref();
+  };
+  process.once("SIGTERM", handleShutdown);
+  process.once("SIGINT", handleShutdown);
 }
 
 startServer().catch(console.error);
